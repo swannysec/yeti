@@ -15,6 +15,7 @@ class CeleryConfig:
 
     CELERY_ROUTES = {
         'core.analytics_tasks.single': {'queue': 'oneshot'},
+        'core.investigation.import_task': {'queue': 'oneshot'},
         'core.feed.update_feed': {'queue': 'feeds'}
     }
 

@@ -1,11 +1,8 @@
 from __future__ import unicode_literals
 
-import re
-
-from mongoengine import *
+from mongoengine import StringField
 
 from core.observables import Observable
-from core.errors import ObservableValidationError
 
 
 class Hash(Observable):
@@ -21,14 +18,12 @@ class Hash(Observable):
         512: 'sha512',
     }
 
-    @staticmethod
-    def check_type(txt):
-        if re.match(r'^[a-f0-9]+$', txt.lower()):
-            return True
+    regex = r'[a-fA-F0-9]+'
 
-    def clean(self):
-        h = self.value.lower()
-        if not re.match(r'^[a-f0-9]+$', h):
-            raise ObservableValidationError("{} is not a valid hex hash".format(self.value))
-        self.value = h
-        self.family = self.HASH_LENGTHS.get((len(h) / 2) * 8, "Unknown")
+    @classmethod
+    def is_valid(cls, value):
+        return (len(value) / 2 * 8) in Hash.HASH_LENGTHS
+
+    def normalize(self):
+        self.value = self.value.lower()
+        self.family = self.HASH_LENGTHS.get((len(self.value) / 2) * 8, "Unknown")
