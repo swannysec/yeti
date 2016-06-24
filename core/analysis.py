@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 from core.observables import Observable, Url, Hostname
 from core.indicators import Indicator
 from core.errors import ObservableValidationError
-from core.helpers import del_from_set, iterify, refang
+from core.helpers import del_from_set, iterify
 
 # load analyzers
 from plugins.analytics.process_hostnames import ProcessHostnames
@@ -15,41 +15,39 @@ analyzers = {
 }
 
 
-def derive(observables):
-    """Indicate that the module needs a specific attribute to work properly.
+def derive(strings):
+    values = set()
 
-    This function is only useful in abstract modules, in order to make sure
-    that modules that inherit from this class correctly defines needed class
-    attributes.
-
-    Args:
-        variables: a string or an array of strings containing the name of
-            needed class attributes.
-
-    Raises:
-        ModuleInitializationError: One of the needed attributes is not
-            correctly defined.
-    """
+    observables = set()
+    for string in iterify(strings):
+        try:
+            t = Observable.guess_type(string)
+            observable = t(string)
+            observable.normalize()
+            observables.add(observable)
+            values.add(observable.value)
+        except ObservableValidationError:
+            values.add(string)
+            # pass
 
     new = []
-    for observable in iterify(observables):
-        try:
-            t = Observable.guess_type(observable)
-            for a in analyzers.get(t, []):
-                new.extend([n for n in a.analyze_string(observable) if n and n not in observables])
-        except ObservableValidationError:
-            pass
+    for observable in observables:
+        for a in analyzers.get(observable.__class__, []):
+            new.extend([n for n in a.analyze_string(observable.value) if n and n not in values])
+
+    print values, new
 
     if len(new) == 0:
-        return observables
+        return values, values
     else:
-        return derive(new + observables)
+        _, extended = derive(new + list(values))
+        return values, extended
 
 
 def match_observables(observables, save_matches=False):
     # Remove empty observables
-    observables = [refang(observable) for observable in observables if observable]
-    extended_query = set(observables) | set(derive(observables))
+    observables, extended_query = derive(observables)
+    observables = list(observables)
     added_entities = set()
 
     data = {

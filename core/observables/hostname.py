@@ -1,49 +1,37 @@
 from __future__ import unicode_literals
 
-import re
-
 import idna
 from mongoengine import BooleanField, StringField
 from tldextract import extract
 
 from core.observables import Observable
 from core.helpers import refang
-from core.errors import ObservableValidationError
 
 
 class Hostname(Observable):
 
-    regex = r"((.+\.)(.+))\.?"
+    main_regex = r'[-.\w[\]]+\[?\.\]?[\w]+'
+    regex = r'(?P<pre>\W?)(?P<search>' + main_regex + ')(?P<post>\W?)'
 
     domain = BooleanField()
     idna = StringField()
 
-    def clean(self):
-        """Performs some normalization on hostnames before saving to the db"""
-        try:
-            self.normalize(self.value)
-        except Exception:
-            raise ObservableValidationError("Invalid hostname: {}".format(self.value))
-
-    def normalize(self, hostname):
-        hostname = Hostname.check_type(hostname)
-        if not hostname:
-            raise ObservableValidationError("Invalid Hostname (check_type={}): {}".format(Hostname.check_type(hostname), hostname))
-
-        self.idna = unicode(idna.encode(hostname.lower()))
-        self.value = unicode(idna.decode(hostname.lower()))
-
-    @staticmethod
-    def check_type(txt):
-        hostname = refang(txt.lower())
-        if hostname:
-            match = re.match("^" + Hostname.regex + "$", hostname)
-            if match:
-                if hostname.endswith('.'):
-                    hostname = hostname[:-1]
-
-                parts = extract(hostname)
-                if parts.suffix and parts.domain:
-                    return hostname
+    @classmethod
+    def is_valid(cls, match):
+        # Check that the domain is not preceded or followed by a '/'
+        # This ensures that we do not match URLs
+        print match.group('search')
+        if match.group('pre') != '/' and match.group('post') != '/':
+            # Check that the domain is valid (by checking TLD)
+            value = refang(match.group('search'))
+            parts = extract(value)
+            if parts.suffix and parts.domain:
+                return True
 
         return False
+
+    def normalize(self):
+        print self.value
+        self.value = refang(self.value.lower())
+        self.idna = unicode(idna.encode(self.value))
+        self.value = unicode(idna.decode(self.value))

@@ -18,12 +18,12 @@ class Hash(Observable):
         512: 'sha512',
     }
 
-    regex = r'[a-fA-F0-9]+'
+    regex = r'(?P<search>[a-fA-F0-9]+)'
 
     @classmethod
-    def is_valid(cls, value):
-        return (len(value) / 2 * 8) in Hash.HASH_LENGTHS
+    def is_valid(cls, match):
+        return (len(match.group('search')) / 2 * 8) in Hash.HASH_LENGTHS
 
     def normalize(self):
         self.value = self.value.lower()
-        self.family = self.HASH_LENGTHS.get((len(self.value) / 2) * 8, "Unknown")
+        self.family = self.HASH_LENGTHS.get((len(self.value) / 2) * 8)
